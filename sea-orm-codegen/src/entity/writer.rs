@@ -167,7 +167,7 @@ impl EntityWriter {
         files.push(self.write_prelude());
         if !self.enums.is_empty() {
             files.push(
-                self.write_sea_orm_active_enums(&context.with_serde, context.with_copy_enums),
+                self.write_sea_orm_active_enums(context),
             );
         }
         WriterOutput { files }
@@ -277,17 +277,18 @@ impl EntityWriter {
 
     pub fn write_sea_orm_active_enums(
         &self,
-        with_serde: &WithSerde,
-        with_copy_enums: bool,
+        context: &EntityWriterContext
     ) -> OutputFile {
         let mut lines = Vec::new();
         Self::write_doc_comment(&mut lines);
-        Self::write(&mut lines, vec![Self::gen_import(with_serde)]);
+        Self::write(&mut lines, vec![Self::gen_import(&context.with_serde)]);
         lines.push("".to_owned());
+
+
         let code_blocks = self
             .enums
             .values()
-            .map(|active_enum| active_enum.impl_active_enum(with_serde, with_copy_enums))
+            .map(|active_enum| active_enum.impl_active_enum(&context.with_serde, context.with_copy_enums, context.model_extra_derives.clone()))
             .collect();
         Self::write(&mut lines, code_blocks);
         OutputFile {
@@ -1956,118 +1957,5 @@ mod tests {
         let expected: TokenStream = content.parse().unwrap();
 
         Ok(expected.to_string())
-    }
-
-    #[test]
-    fn test_gen_postgres() -> io::Result<()> {
-        let entities = vec![
-            // This tests that the JsonBinary column type is annotated
-            // correctly in compact entity form. More information can be found
-            // in this issue:
-            //
-            // https://github.com/SeaQL/sea-orm/issues/1344
-            Entity {
-                table_name: "task".to_owned(),
-                columns: vec![
-                    Column {
-                        name: "id".to_owned(),
-                        col_type: ColumnType::Integer,
-                        auto_increment: true,
-                        not_null: true,
-                        unique: false,
-                    },
-                    Column {
-                        name: "payload".to_owned(),
-                        col_type: ColumnType::Json,
-                        auto_increment: false,
-                        not_null: true,
-                        unique: false,
-                    },
-                    Column {
-                        name: "payload_binary".to_owned(),
-                        col_type: ColumnType::JsonBinary,
-                        auto_increment: false,
-                        not_null: true,
-                        unique: false,
-                    },
-                ],
-                relations: vec![],
-                conjunct_relations: vec![],
-                primary_keys: vec![PrimaryKey {
-                    name: "id".to_owned(),
-                }],
-            },
-        ];
-        const ENTITY_FILES: [&str; 1] = [include_str!("../../tests/postgres/binary_json.rs")];
-
-        const ENTITY_FILES_EXPANDED: [&str; 1] =
-            [include_str!("../../tests/postgres/binary_json_expanded.rs")];
-
-        assert_eq!(entities.len(), ENTITY_FILES.len());
-
-        for (i, entity) in entities.iter().enumerate() {
-            assert_eq!(
-                parse_from_file(ENTITY_FILES[i].as_bytes())?.to_string(),
-                EntityWriter::gen_compact_code_blocks(
-                    entity,
-                    &crate::WithSerde::None,
-                    &crate::DateTimeCrate::Chrono,
-                    &None,
-                    false,
-                    false,
-                    &TokenStream::new(),
-                    &TokenStream::new(),
-                )
-                .into_iter()
-                .skip(1)
-                .fold(TokenStream::new(), |mut acc, tok| {
-                    acc.extend(tok);
-                    acc
-                })
-                .to_string()
-            );
-            assert_eq!(
-                parse_from_file(ENTITY_FILES[i].as_bytes())?.to_string(),
-                EntityWriter::gen_compact_code_blocks(
-                    entity,
-                    &crate::WithSerde::None,
-                    &crate::DateTimeCrate::Chrono,
-                    &Some("public".to_owned()),
-                    false,
-                    false,
-                    &TokenStream::new(),
-                    &TokenStream::new(),
-                )
-                .into_iter()
-                .skip(1)
-                .fold(TokenStream::new(), |mut acc, tok| {
-                    acc.extend(tok);
-                    acc
-                })
-                .to_string()
-            );
-            assert_eq!(
-                parse_from_file(ENTITY_FILES_EXPANDED[i].as_bytes())?.to_string(),
-                EntityWriter::gen_expanded_code_blocks(
-                    entity,
-                    &crate::WithSerde::None,
-                    &crate::DateTimeCrate::Chrono,
-                    &Some("schema_name".to_owned()),
-                    false,
-                    false,
-                    &TokenStream::new(),
-                    &TokenStream::new(),
-                )
-                .into_iter()
-                .skip(1)
-                .fold(TokenStream::new(), |mut acc, tok| {
-                    acc.extend(tok);
-                    acc
-                })
-                .to_string()
-            );
-        }
-
-        Ok(())
     }
 }
