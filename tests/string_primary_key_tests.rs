@@ -2,7 +2,7 @@ pub mod common;
 
 pub use common::{features::*, setup::*, TestContext};
 use pretty_assertions::assert_eq;
-use sea_orm::{entity::prelude::*, entity::*, DatabaseConnection};
+use sea_orm::{entity::prelude::*, entity::*, sea_query::OnConflict, DatabaseConnection};
 use serde_json::json;
 
 #[sea_orm_macros::test]
@@ -30,7 +30,7 @@ pub async fn insert_and_delete_repository(db: &DatabaseConnection) -> Result<(),
     }
     .into_active_model();
 
-    let result = repository.insert(db).await?;
+    let result = repository.clone().insert(db).await?;
 
     assert_eq!(
         result,
@@ -41,6 +41,17 @@ pub async fn insert_and_delete_repository(db: &DatabaseConnection) -> Result<(),
             description: None,
         }
     );
+
+    #[cfg(any(feature = "sqlx-sqlite", feature = "sqlx-postgres"))]
+    {
+        let err = Repository::insert(repository)
+            // MySQL does not support DO NOTHING, we might workaround that later
+            .on_conflict(OnConflict::new().do_nothing().to_owned())
+            .exec(db)
+            .await;
+
+        assert_eq!(err.err(), Some(DbErr::RecordNotInserted));
+    }
 
     result.delete(db).await?;
 
@@ -119,12 +130,7 @@ pub async fn create_and_update_repository(db: &DatabaseConnection) -> Result<(),
         .exec(db)
         .await;
 
-    assert_eq!(
-        update_res,
-        Err(DbErr::RecordNotFound(
-            "None of the database rows are affected".to_owned()
-        ))
-    );
+    assert_eq!(update_res, Err(DbErr::RecordNotUpdated));
 
     let update_res = Repository::update(updated_active_model)
         .filter(repository::Column::Id.eq("unique-id-002".to_owned()))

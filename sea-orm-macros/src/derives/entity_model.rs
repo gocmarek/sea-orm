@@ -248,18 +248,12 @@ pub fn expand_derive_entity_model(data: Data, attrs: Vec<Attribute>) -> syn::Res
 
                     if let Some(select_as) = select_as {
                         columns_select_as.push(quote! {
-                            Self::#field_name => sea_orm::sea_query::SimpleExpr::cast_as(
-                                Into::<sea_orm::sea_query::SimpleExpr>::into(expr),
-                                sea_orm::sea_query::Alias::new(&#select_as),
-                            ),
+                            Self::#field_name => expr.cast_as(sea_orm::sea_query::Alias::new(&#select_as))
                         });
                     }
                     if let Some(save_as) = save_as {
                         columns_save_as.push(quote! {
-                            Self::#field_name => sea_orm::sea_query::SimpleExpr::cast_as(
-                                Into::<sea_orm::sea_query::SimpleExpr>::into(val),
-                                sea_orm::sea_query::Alias::new(&#save_as),
-                            ),
+                            Self::#field_name => val.cast_as(sea_orm::sea_query::Alias::new(&#save_as))
                         });
                     }
 
@@ -274,8 +268,8 @@ pub fn expand_derive_entity_model(data: Data, attrs: Vec<Attribute>) -> syn::Res
                         field_type.as_str()
                     };
 
-                    let col_type = match sql_type {
-                        Some(t) => quote! { sea_orm::prelude::ColumnType::#t.def() },
+                    let sea_query_col_type = match sql_type {
+                        Some(t) => quote! { sea_orm::prelude::ColumnType::#t },
                         None => {
                             let col_type = match field_type {
                                 "char" => quote! { Char(None) },
@@ -302,7 +296,9 @@ pub fn expand_derive_entity_model(data: Data, attrs: Vec<Attribute>) -> syn::Res
                                 "Uuid" => quote! { Uuid },
                                 "Json" => quote! { Json },
                                 "Decimal" => quote! { Decimal(None) },
-                                "Vec<u8>" => quote! { Binary },
+                                "Vec<u8>" => {
+                                    quote! { Binary(sea_orm::sea_query::BlobSize::Blob(None)) }
+                                }
                                 _ => {
                                     // Assumed it's ActiveEnum if none of the above type matches
                                     quote! {}
@@ -311,20 +307,21 @@ pub fn expand_derive_entity_model(data: Data, attrs: Vec<Attribute>) -> syn::Res
                             if col_type.is_empty() {
                                 let field_span = field.span();
                                 let ty: Type = LitStr::new(field_type, field_span).parse()?;
-                                let def = quote_spanned! { field_span => {
+                                let def = quote_spanned! { field_span =>
                                     std::convert::Into::<sea_orm::ColumnType>::into(
                                         <#ty as sea_orm::sea_query::ValueType>::column_type()
                                     )
-                                    .def()
-                                }};
+                                };
                                 quote! { #def }
                             } else {
-                                quote! { sea_orm::prelude::ColumnType::#col_type.def() }
+                                quote! { sea_orm::prelude::ColumnType::#col_type }
                             }
                         }
                     };
+                    let col_def =
+                        quote! { sea_orm::prelude::ColumnTypeTrait::def(#sea_query_col_type) };
 
-                    let mut match_row = quote! { Self::#field_name => #col_type };
+                    let mut match_row = quote! { Self::#field_name => #col_def };
                     if nullable {
                         match_row = quote! { #match_row.nullable() };
                     }
@@ -344,6 +341,14 @@ pub fn expand_derive_entity_model(data: Data, attrs: Vec<Attribute>) -> syn::Res
                 }
             }
         }
+    }
+
+    // Add tailing comma
+    if !columns_select_as.is_empty() {
+        columns_select_as.push_punct(Comma::default());
+    }
+    if !columns_save_as.is_empty() {
+        columns_save_as.push_punct(Comma::default());
     }
 
     let primary_key = {

@@ -58,6 +58,7 @@ If you have built an app using SeaORM and want to showcase it, feel free to open
 - [RSS aggregator](https://github.com/fistons/rss-aggregator)| A small RSS aggregator and API using actix and SeaORM | DB: Postgres
 - [Dev Board](https://github.com/goto-eof/dev_board_api_rust)| A dashboard for organizing software development tasks implemented in Rust
 - [Wikipedia Speedrun](https://wikipediaspeedrun.com) ([repository](https://github.com/hut8/wikipedia-speedrun)) | Finds shortest paths between Wikipedia articles | DB: SQLite
+- [Dinoly](https://github.com/ippsav/Dinoly) | An url shortener using Axum web framework and SeaORM | DB: Postgres
 
 #### Frontend (desktop / cli)
 
@@ -81,6 +82,8 @@ If you have built an app using SeaORM and want to showcase it, feel free to open
 - [Rust Async-GraphQL Example: Caster API](https://github.com/bkonkle/rust-example-caster-api) | A demo GraphQL API using Tokio, Warp, async-graphql, and SeaORM | DB: Postgres
 - [rust-juniper-playground](https://github.com/Yama-Tomo/rust-juniper-playground) | juniper with SeaORM example | DB: MySQL
 - [crud-rs](https://github.com/onichandame/crud-rs) | A framework combining async-graphql and SeaORM
+- [http-api-rs](https://github.com/daniel-samson/http-api-rs) | Template project for creating REST API's in rust with swagger ui
+
 
 ## Learning Resources
 

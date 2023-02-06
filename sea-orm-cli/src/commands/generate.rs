@@ -186,10 +186,11 @@ pub async fn run_generate_command(
 
             // Format each of the files
             for OutputFile { name, .. } in output.files.iter() {
-                Command::new("rustfmt")
-                    .arg(dir.join(name))
-                    .spawn()?
-                    .wait()?;
+                let exit_status = Command::new("rustfmt").arg(dir.join(name)).status()?; // Get the status code
+                if !exit_status.success() {
+                    // Propagate the error if any
+                    return Err(format!("Fail to format file `{name}`").into());
+                }
             }
         }
     }
@@ -210,7 +211,7 @@ where
     // Set search_path for Postgres, E.g. Some("public") by default
     // MySQL & SQLite connection initialize with schema `None`
     if let Some(schema) = schema {
-        let sql = format!("SET search_path = '{}'", schema);
+        let sql = format!("SET search_path = '{schema}'");
         pool_options = pool_options.after_connect(move |conn, _| {
             let sql = sql.clone();
             Box::pin(async move {

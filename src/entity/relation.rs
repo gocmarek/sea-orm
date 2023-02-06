@@ -7,7 +7,7 @@ use sea_query::{
 use std::fmt::Debug;
 
 /// Defines the type of relationship
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RelationType {
     /// An Entity has one relationship
     HasOne,
@@ -303,8 +303,8 @@ where
             rel_type: b.rel_type,
             from_tbl: b.from_tbl,
             to_tbl: b.to_tbl,
-            from_col: b.from_col.unwrap(),
-            to_col: b.to_col.unwrap(),
+            from_col: b.from_col.expect("Reference column is not set"),
+            to_col: b.to_col.expect("Owner column is not set"),
             is_owner: b.is_owner,
             on_delete: b.on_delete,
             on_update: b.on_update,
