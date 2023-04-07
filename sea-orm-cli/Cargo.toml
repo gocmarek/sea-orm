@@ -49,6 +49,7 @@ git2 = { version = "0.16", default-features = false }
 
 [dev-dependencies]
 smol = "1.2.5"
+openssl = { version = "0.10", features = ["vendored"] }
 
 [features]
 default = ["codegen", "cli", "runtime-async-std-native-tls", "async-std"]
